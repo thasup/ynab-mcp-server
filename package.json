@@ -11,8 +11,12 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "dev:remote": "tsx watch src/express.ts",
+    "dev:worker": "wrangler dev",
     "start": "node dist/index.js",
     "start:remote": "node dist/express.js",
+    "start:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
     "clean": "rm -rf dist"
   },
   "engines": {
@@ -25,16 +29,19 @@
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "agents": "^0.9.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "ynab": "^4.1.0",
     "zod": "^4.4.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250303.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^3.111.0"
   }
 }

@@ -6,6 +6,15 @@ import { YNAB_API_TOKEN_ENV } from "../constants.js";
 let _client: ynab.API | null = null;
 let _moneyMovements: MoneyMovementsApi | null = null;
 
+export function setYnabToken(token: string) {
+  if (typeof process === "undefined") {
+    (globalThis as any).process = { env: {} };
+  } else if (!process.env) {
+    process.env = {};
+  }
+  process.env[YNAB_API_TOKEN_ENV] = token;
+}
+
 export function getYnabClient(): ynab.API {
   if (!_client) {
     const token = process.env[YNAB_API_TOKEN_ENV];
