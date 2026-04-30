@@ -14,13 +14,22 @@ import {
   registerUserTools,
 } from "./tools/index.js";
 
-export class YnabMCP extends McpAgent {
+export interface Env {
+  YNAB_API_TOKEN: string;
+  MCP_AUTH_KEY: string;
+}
+
+export class YnabMCP extends McpAgent<Env> {
   server = new McpServer({
     name: "ynab-mcp-server",
     version: "1.0.0",
   });
 
   async init() {
+    if (this.env.YNAB_API_TOKEN) {
+      setYnabToken(this.env.YNAB_API_TOKEN);
+    }
+
     registerPlanTools(this.server);
     registerAccountTools(this.server);
     registerMonthTools(this.server);
@@ -34,25 +43,17 @@ export class YnabMCP extends McpAgent {
   }
 }
 
-export interface Env {
-  YNAB_API_TOKEN: string;
-  MCP_SECRET_KEY: string;
-}
-
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
 
     if (url.pathname === "/mcp") {
-      // Security Check: Ensure requests are authorized
+      // Reject any request that doesn't carry the right Bearer token
       const authHeader = request.headers.get("Authorization");
-      if (authHeader !== `Bearer ${env.MCP_SECRET_KEY}`) {
+      if (!env.MCP_AUTH_KEY || authHeader !== `Bearer ${env.MCP_AUTH_KEY}`) {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      if (env.YNAB_API_TOKEN) {
-        setYnabToken(env.YNAB_API_TOKEN);
-      }
       return YnabMCP.serve("/mcp").fetch(request, env, ctx);
     }
 
