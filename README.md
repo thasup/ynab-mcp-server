@@ -1,13 +1,12 @@
 # YNAB MCP Server
 
-An MCP (Model Context Protocol) server for the [YNAB (You Need A Budget)](https://www.ynab.com/) API, built with [FastMCP](https://gofastmcp.com/).
+An MCP (Model Context Protocol) server for the [YNAB (You Need A Budget)](https://www.ynab.com/) API, built with TypeScript and the official [YNAB SDK](https://github.com/ynab/ynab-sdk-js).
 
-This server automatically exposes all YNAB API endpoints as MCP tools, allowing AI assistants like Claude to interact with your YNAB budgets, accounts, transactions, and more.
+This server exposes 42 YNAB API endpoints as typed MCP tools, allowing AI assistants like Claude to interact with your budgets, accounts, transactions, categories, and more.
 
 ## Prerequisites
 
-- Python 3.11 or higher
-- [uv](https://docs.astral.sh/uv/) package manager
+- Node.js 18 or higher
 - A YNAB account with API access
 
 ## Setup
@@ -27,10 +26,11 @@ cd ynab-mcp-server
 4. Give your token a name and click **Generate**
 5. Copy the token (you won't be able to see it again!)
 
-### 3. Install Dependencies
+### 3. Install and Build
 
 ```bash
-uv sync
+npm install
+npm run build
 ```
 
 ## Running the Server
@@ -46,8 +46,8 @@ Add the following to your Claude Desktop configuration file:
 {
   "mcpServers": {
     "ynab": {
-      "command": "/absolute/path/to/this/project/.venv/bin/ynab-mcp-server",
-      "args": [],
+      "command": "node",
+      "args": ["/absolute/path/to/ynab-mcp-server/dist/index.js"],
       "env": {
         "YNAB_API_TOKEN": "your-token-here"
       }
@@ -58,14 +58,14 @@ Add the following to your Claude Desktop configuration file:
 
 ### With Cursor
 
-Add the following to your Cursor MCP settings (`~/.cursor/mcp.json` for global or `.cursor/mcp.json` in your project):
+Add the following to your Cursor MCP settings (`~/.cursor/mcp.json` or `.cursor/mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "ynab": {
-      "command": "/absolute/path/to/this/project/.venv/bin/ynab-mcp-server",
-      "args": [],
+      "command": "node",
+      "args": ["/absolute/path/to/ynab-mcp-server/dist/index.js"],
       "env": {
         "YNAB_API_TOKEN": "your-token-here"
       }
@@ -76,14 +76,12 @@ Add the following to your Cursor MCP settings (`~/.cursor/mcp.json` for global o
 
 ### With OpenCode
 
-Add the following to your OpenCode configuration file (`~/.config/opencode/opencode.json`):
-
 ```json
 {
   "mcp": {
     "ynab": {
       "type": "local",
-      "command": ["/absolute/path/to/this/project/.venv/bin/ynab-mcp-server"],
+      "command": ["node", "/absolute/path/to/ynab-mcp-server/dist/index.js"],
       "enabled": true,
       "environment": {
         "YNAB_API_TOKEN": "your-token-here"
@@ -95,71 +93,84 @@ Add the following to your OpenCode configuration file (`~/.config/opencode/openc
 
 ## Available Tools
 
-The server automatically exposes all YNAB API endpoints as MCP tools. Here are some of the available operations:
+All tools use `plan_id` defaulting to `"last-used"` — single-budget users don't need to supply it.
 
 ### User
+- `ynab_get_user` — Get authenticated user information
 
-- `getUser` - Get authenticated user information
-
-### Budgets
-
-- `getBudgets` - List all budgets
-- `getBudgetById` - Get a single budget with all related entities
-- `getBudgetSettingsById` - Get budget settings
+### Plans (Budgets)
+- `ynab_list_plans` — List all budgets
+- `ynab_get_plan` — Get a budget with all related entities
+- `ynab_get_plan_settings` — Get budget settings (currency format, date format)
 
 ### Accounts
-
-- `getAccounts` - List all accounts for a budget
-- `getAccountById` - Get a single account
-- `createAccount` - Create a new account
+- `ynab_list_accounts` — List all accounts with balances
+- `ynab_get_account` — Get a single account
+- `ynab_create_account` — Create a new account
 
 ### Categories
-
-- `getCategories` - List all categories for a budget
-- `getCategoryById` - Get a single category
-- `updateCategory` - Update a category
-- `getMonthCategoryById` - Get a category for a specific month
-- `updateMonthCategory` - Update a category for a specific month
-
-### Transactions
-
-- `getTransactions` - List transactions
-- `getTransactionById` - Get a single transaction
-- `createTransaction` - Create a new transaction
-- `updateTransaction` - Update a transaction
-- `deleteTransaction` - Delete a transaction
-- `importTransactions` - Import transactions
-- `getTransactionsByAccount` - List transactions for an account
-- `getTransactionsByCategory` - List transactions for a category
-- `getTransactionsByPayee` - List transactions for a payee
-
-### Payees
-
-- `getPayees` - List all payees
-- `getPayeeById` - Get a single payee
-- `updatePayee` - Update a payee
-
-### Scheduled Transactions
-
-- `getScheduledTransactions` - List scheduled transactions
-- `getScheduledTransactionById` - Get a single scheduled transaction
-- `createScheduledTransaction` - Create a new scheduled transaction
-- `updateScheduledTransaction` - Update a scheduled transaction
+- `ynab_list_categories` — List all category groups and categories
+- `ynab_get_category` — Get a single category
+- `ynab_update_category` — Update a category's name or notes
+- `ynab_get_month_category` — Get category data for a specific month
+- `ynab_update_month_category` — Set budgeted amount for a category in a month
+- `ynab_create_category` — Create a new category in a group
+- `ynab_create_category_group` — Create a new category group
+- `ynab_update_category_group` — Update a category group
 
 ### Months
+- `ynab_list_months` — List all budget months
+- `ynab_get_month` — Get a specific budget month with category details
 
-- `getBudgetMonths` - List budget months
-- `getBudgetMonth` - Get a single budget month
+### Transactions
+- `ynab_list_transactions` — List transactions (use `since_date` to limit)
+- `ynab_get_transaction` — Get a single transaction
+- `ynab_list_transactions_by_account` — List transactions for an account
+- `ynab_list_transactions_by_category` — List transactions for a category
+- `ynab_list_transactions_by_payee` — List transactions for a payee
+- `ynab_list_transactions_by_month` — List transactions for a month
+- `ynab_create_transaction` — Create one or more transactions
+- `ynab_update_transaction` — Update a transaction
+- `ynab_update_transactions` — Bulk update multiple transactions
+- `ynab_delete_transaction` — Delete a transaction (destructive)
+- `ynab_import_transactions` — Import transactions from connected accounts
 
-## Example Usage
+### Scheduled Transactions
+- `ynab_list_scheduled_transactions` — List all scheduled transactions
+- `ynab_get_scheduled_transaction` — Get a single scheduled transaction
+- `ynab_create_scheduled_transaction` — Create a new recurring transaction
+- `ynab_update_scheduled_transaction` — Update a scheduled transaction
+- `ynab_delete_scheduled_transaction` — Delete a scheduled transaction (destructive)
+
+### Payees
+> Note: `ynab_list_payees` is intentionally excluded — the full payee list can be very large and overwhelm the context window.
+
+- `ynab_get_payee` — Get a single payee by ID
+- `ynab_create_payee` — Create a new payee
+- `ynab_update_payee` — Update a payee's name
+
+### Payee Locations
+- `ynab_list_payee_locations` — List all payee locations
+- `ynab_get_payee_location` — Get a single payee location
+- `ynab_list_payee_locations_by_payee` — List locations for a specific payee
+
+### Money Movements
+- `ynab_list_money_movements` — List all money movements (income/budgeted/activity flows)
+- `ynab_list_money_movements_by_month` — List money movements for a specific month
+- `ynab_list_money_movement_groups` — List money movement groups (by category group)
+- `ynab_list_money_movement_groups_by_month` — List money movement groups for a specific month
+
+## Example Prompts
 
 Once connected, you can ask Claude things like:
 
 - "Show me my YNAB budgets"
 - "What's my current balance in my checking account?"
-- "List my transactions from last week"
-- "Create a transaction for $50 at the grocery store"
-- "How much have I spent on dining out this month?"
+- "List my transactions from the last 30 days"
+- "Create a transaction for $50 at the grocery store in my Groceries category"
+- "How much have I budgeted vs spent on dining out this month?"
+- "Set my Groceries budget to $400 for this month"
+- "Show me all unapproved transactions"
 
 ## Creating Custom Skills for Your YNAB Workflow
 
@@ -192,19 +203,9 @@ Ask Claude:
 the conventions we just used for processing transactions"
 ```
 
-The skill-creator will guide you through:
-
-1. Identifying the reusable patterns from your workflow
-2. Creating a SKILL.md file with your conventions
-3. Structuring the skill for future use
-
 ### Step 3: Use Your Skills
 
-Once created, your skills live in `.skills/` and Claude will automatically apply them when relevant. You can:
-
-- Add more conventions as you discover them
-- Share skills with others who have similar YNAB setups
-- Build on the included examples
+Once created, your skills live in `.skills/` and Claude will automatically apply them when relevant.
 
 ### Included Skills
 
@@ -216,28 +217,47 @@ Once created, your skills live in `.skills/` and Claude will automatically apply
 
 ```
 .
-├── pyproject.toml
+├── package.json
+├── tsconfig.json
 ├── README.md
-├── uv.lock
 └── src/
-    └── ynab_mcp_server/
-        ├── __init__.py
-        └── server.py
+    ├── index.ts              # Server entry point
+    ├── constants.ts          # Shared constants
+    ├── utils.ts              # Error handling, milliunit conversion, truncation
+    ├── services/
+    │   └── ynab-client.ts    # YNAB SDK singleton
+    └── tools/
+        ├── index.ts          # Tool registration exports
+        ├── plans.ts
+        ├── accounts.ts
+        ├── months.ts
+        ├── categories.ts
+        ├── transactions.ts
+        ├── scheduled-transactions.ts
+        ├── payees.ts
+        ├── payee-locations.ts
+        ├── money-movements.ts
+        └── user.ts
 ```
 
-### How It Works
+### Build
 
-This server uses FastMCP's `from_openapi()` method to automatically generate MCP tools from YNAB's OpenAPI specification. When the server starts, it:
+```bash
+npm run build      # compile TypeScript → dist/
+npm run dev        # watch mode with tsx
+npm run clean      # remove dist/
+```
 
-1. Fetches the YNAB OpenAPI spec from `https://api.ynab.com/papi/open_api_spec.yaml`
-2. Parses the specification
-3. Creates an authenticated HTTP client with your API token
-4. Generates MCP tools for each API endpoint
+### Testing with MCP Inspector
+
+```bash
+YNAB_API_TOKEN=your-token npx @modelcontextprotocol/inspector node dist/index.js
+```
 
 ## Resources
 
 - [YNAB API Documentation](https://api.ynab.com/)
-- [FastMCP Documentation](https://gofastmcp.com/)
+- [YNAB JavaScript SDK](https://github.com/ynab/ynab-sdk-js)
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)
 
 ## License

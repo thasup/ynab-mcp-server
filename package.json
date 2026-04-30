@@ -1,0 +1,34 @@
+{
+  "name": "ynab-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for the YNAB (You Need A Budget) API",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ynab-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rgarcia/ynab-mcp-server.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ynab": "^4.1.0",
+    "zod": "^4.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
