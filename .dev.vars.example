@@ -7,4 +7,4 @@ YNAB_API_TOKEN=your_ynab_personal_access_token_here
 
 # A secret key that only you know — used to authenticate your MCP client connections.
 # Make it a long random string, e.g.: openssl rand -hex 32
-MCP_AUTH_KEY=base64:6eCMevgP29ejqwkOjLNw0s1Zjdo06xhtLc2kIG6EuMI=
+MCP_AUTH_KEY=your_secret_key_here
