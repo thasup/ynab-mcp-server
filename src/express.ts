@@ -1,5 +1,5 @@
-import * as express from "express";
-import * as cors from "cors";
+import express from "express";
+import cors from "cors";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { YNAB_API_TOKEN_ENV } from "./constants.js";
