@@ -48,9 +48,9 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/mcp") {
-      // Reject any request that doesn't carry the right Bearer token
-      const authHeader = request.headers.get("Authorization");
-      if (!env.MCP_AUTH_KEY || authHeader !== `Bearer ${env.MCP_AUTH_KEY}`) {
+      // Auth via ?key= query param (claude.ai connectors can't send custom headers)
+      const key = url.searchParams.get("key");
+      if (!env.MCP_AUTH_KEY || key !== env.MCP_AUTH_KEY) {
         return new Response("Unauthorized", { status: 401 });
       }
 
