@@ -16,14 +16,17 @@ import {
 
 export interface Env {
   YNAB_API_TOKEN: string;
+  /** Grants read tools only. */
   MCP_AUTH_KEY: string;
-  /** Read-only unless explicitly set to "false". */
-  READ_ONLY?: string;
+  /** Grants read + write tools. Optional: unset means nobody can write. */
+  MCP_WRITE_KEY?: string;
 }
+
+type Props = { canWrite: boolean };
 
 /**
  * Wrap the server so only tools annotated `readOnlyHint: true` get registered.
- * Write tools (create/update/delete/import) simply do not exist for the client.
+ * Write tools (create/update/delete/import) do not exist for that session.
  */
 function readOnlyView(server: McpServer): McpServer {
   return new Proxy(server, {
@@ -49,7 +52,13 @@ async function secureEquals(a: string, b: string): Promise<boolean> {
   return (crypto.subtle as any).timingSafeEqual(ha, hb) as boolean;
 }
 
-export class YnabMCP extends McpAgent<Env> {
+/** Key from ?key= (claude.ai connectors) or `Authorization: Bearer` (other clients). */
+function presentedKey(request: Request, url: URL): string | null {
+  const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  return bearer ?? url.searchParams.get("key");
+}
+
+export class YnabMCP extends McpAgent<Env, unknown, Props> {
   server = new McpServer({
     name: "ynab-mcp-server",
     version: "1.0.0",
@@ -60,8 +69,7 @@ export class YnabMCP extends McpAgent<Env> {
       setYnabToken(this.env.YNAB_API_TOKEN);
     }
 
-    const target =
-      this.env.READ_ONLY === "false" ? this.server : readOnlyView(this.server);
+    const target = this.props?.canWrite ? this.server : readOnlyView(this.server);
 
     registerPlanTools(target);
     registerAccountTools(target);
@@ -81,12 +89,19 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/mcp") {
-      // Auth via ?key= query param (claude.ai connectors can't send custom headers)
-      const key = url.searchParams.get("key");
-      if (!env.MCP_AUTH_KEY || !key || !(await secureEquals(key, env.MCP_AUTH_KEY))) {
+      const key = presentedKey(request, url);
+      if (!key) return new Response("Unauthorized", { status: 401 });
+
+      // Check both keys every time so timing does not reveal which one matched.
+      const [isRead, isWrite] = await Promise.all([
+        env.MCP_AUTH_KEY ? secureEquals(key, env.MCP_AUTH_KEY) : false,
+        env.MCP_WRITE_KEY ? secureEquals(key, env.MCP_WRITE_KEY) : false,
+      ]);
+      if (!isRead && !isWrite) {
         return new Response("Unauthorized", { status: 401 });
       }
 
+      (ctx as any).props = { canWrite: isWrite } satisfies Props;
       return YnabMCP.serve("/mcp").fetch(request, env, ctx);
     }
 
