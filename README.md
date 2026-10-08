@@ -43,23 +43,30 @@ npm run build
 ## Hosted on Cloudflare Workers (claude.ai connector)
 
 The Worker (`wrangler.jsonc`, Durable Object `YnabMCP`) serves MCP at
-`https://ynab-mcp-server.<your-workers-subdomain>.workers.dev/mcp?key=<MCP_AUTH_KEY>`.
+`https://ynab-mcp-server.<your-workers-subdomain>.workers.dev/mcp?key=<KEY>`.
+
+Two secrets decide what a connection can do:
+
+| Secret | Connects with |
+|---|---|
+| `MCP_AUTH_KEY` (read key) | read tools only (list/get) |
+| `MCP_WRITE_KEY` (write key) | all tools, including create/update/delete/import |
 
 ```bash
 npx wrangler secret put YNAB_API_TOKEN   # your YNAB token
-npx wrangler secret put MCP_AUTH_KEY     # long random string: openssl rand -hex 32
+npx wrangler secret put MCP_AUTH_KEY     # read key:  openssl rand -hex 32
+npx wrangler secret put MCP_WRITE_KEY    # write key: openssl rand -hex 32 (different value)
 npm run deploy
 ```
 
-Then in claude.ai: **Settings → Connectors → Add custom connector**, using the full URL
-including `?key=...`. Treat that URL as a secret and rotate `MCP_AUTH_KEY` if it leaks.
+Then in claude.ai: **Settings → Connectors → Add custom connector**. Add one connector with the
+read key for everyday use and, if you want Claude to change data, a second one with the write key
+that you switch on per chat only when needed. Treat each URL as a secret and rotate the matching
+secret if it leaks. Leave `MCP_WRITE_KEY` unset to make writes impossible. Other clients can send
+the key as `Authorization: Bearer <key>` instead of `?key=`. The local stdio server always
+exposes every tool.
 
-**Read-only by default.** The Worker only registers tools annotated `readOnlyHint: true`.
-Create, update, delete and import tools are not exposed unless you set the variable
-`READ_ONLY` to `false` (Cloudflare dashboard → Workers → ynab-mcp-server → Settings →
-Variables) and redeploy. The local stdio server is unaffected and always exposes every tool.
-
-See [DEPLOY-CLOUDFLARE.md](DEPLOY-CLOUDFLARE.md) for verification commands.
+See [DEPLOY-CLOUDFLARE.md](DEPLOY-CLOUDFLARE.md) for verification commands and known limits.
 
 ## Running Locally (stdio)
 
@@ -122,7 +129,7 @@ Add the following to your Cursor MCP settings (`~/.cursor/mcp.json` or `.cursor/
 ## Available Tools
 
 All tools use `plan_id` defaulting to `"last-used"` — single-budget users don't need to supply it.
-On the hosted Worker, only the read tools (`get`, `list`) are available unless `READ_ONLY=false`.
+Tools marked *(write)* are only available to the hosted Worker with the write key.
 
 ### User
 - `ynab_get_user` — Get authenticated user information
@@ -199,7 +206,7 @@ Once connected, you can ask Claude things like:
 - "How much have I budgeted vs spent on dining out this month?"
 - "Show me all unapproved transactions"
 
-With writes enabled (local stdio, or `READ_ONLY=false` on the Worker):
+With writes enabled (local stdio, or the Worker's write key):
 
 - "Create a transaction for $50 at the grocery store in my Groceries category"
 - "Set my Groceries budget to $400 for this month"
@@ -256,7 +263,7 @@ Once created, your skills live in `.skills/` and Claude will automatically apply
 ├── README.md
 └── src/
     ├── index.ts              # Local stdio entry point
-    ├── worker.ts             # Cloudflare Worker entry (key gate, read-only filter)
+    ├── worker.ts             # Cloudflare Worker entry (read/write key gate)
     ├── express.ts            # Express HTTP entry (dev:remote)
     ├── constants.ts          # Shared constants
     ├── utils.ts              # Error handling, milliunit conversion, truncation
