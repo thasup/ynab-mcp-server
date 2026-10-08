@@ -5,6 +5,10 @@
 # Get it from: https://app.ynab.com/settings/developer
 YNAB_API_TOKEN=your_ynab_personal_access_token_here
 
-# A secret key that only you know — used to authenticate your MCP client connections.
-# Make it a long random string, e.g.: openssl rand -hex 32
-MCP_AUTH_KEY=your_secret_key_here
+# Read key: connects with read tools only (list/get). Long random string:
+#   openssl rand -hex 32
+MCP_AUTH_KEY=your_read_key_here
+
+# Write key: connects with ALL tools (create/update/delete/import).
+# Must differ from MCP_AUTH_KEY. Leave unset to make writes impossible.
+MCP_WRITE_KEY=your_write_key_here
