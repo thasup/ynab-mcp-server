@@ -16,31 +16,8 @@ import {
 
 export interface Env {
   YNAB_API_TOKEN: string;
-  /** Grants read tools only. */
+  /** The one secret that unlocks every tool (read and write). */
   MCP_AUTH_KEY: string;
-  /** Grants read + write tools. Optional: unset means nobody can write. */
-  MCP_WRITE_KEY?: string;
-}
-
-type Props = { canWrite: boolean };
-
-/**
- * Wrap the server so only tools annotated `readOnlyHint: true` get registered.
- * Write tools (create/update/delete/import) do not exist for that session.
- */
-function readOnlyView(server: McpServer): McpServer {
-  return new Proxy(server, {
-    get(target, prop) {
-      if (prop === "registerTool") {
-        return (name: string, config: any, cb: any) =>
-          config?.annotations?.readOnlyHint === true
-            ? (target.registerTool as any)(name, config, cb)
-            : undefined;
-      }
-      const value = (target as any)[prop];
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
 }
 
 async function secureEquals(a: string, b: string): Promise<boolean> {
@@ -52,13 +29,13 @@ async function secureEquals(a: string, b: string): Promise<boolean> {
   return (crypto.subtle as any).timingSafeEqual(ha, hb) as boolean;
 }
 
-/** Key from ?key= (claude.ai connectors) or `Authorization: Bearer` (other clients). */
+/** Key from `Authorization: Bearer` (preferred, keeps it out of URLs) or ?key= (fallback). */
 function presentedKey(request: Request, url: URL): string | null {
   const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   return bearer ?? url.searchParams.get("key");
 }
 
-export class YnabMCP extends McpAgent<Env, unknown, Props> {
+export class YnabMCP extends McpAgent<Env> {
   server = new McpServer({
     name: "ynab-mcp-server",
     version: "1.0.0",
@@ -69,18 +46,16 @@ export class YnabMCP extends McpAgent<Env, unknown, Props> {
       setYnabToken(this.env.YNAB_API_TOKEN);
     }
 
-    const target = this.props?.canWrite ? this.server : readOnlyView(this.server);
-
-    registerPlanTools(target);
-    registerAccountTools(target);
-    registerMonthTools(target);
-    registerCategoryTools(target);
-    registerTransactionTools(target);
-    registerPayeeTools(target);
-    registerPayeeLocationTools(target);
-    registerScheduledTransactionTools(target);
-    registerMoneyMovementTools(target);
-    registerUserTools(target);
+    registerPlanTools(this.server);
+    registerAccountTools(this.server);
+    registerMonthTools(this.server);
+    registerCategoryTools(this.server);
+    registerTransactionTools(this.server);
+    registerPayeeTools(this.server);
+    registerPayeeLocationTools(this.server);
+    registerScheduledTransactionTools(this.server);
+    registerMoneyMovementTools(this.server);
+    registerUserTools(this.server);
   }
 }
 
@@ -90,18 +65,10 @@ export default {
 
     if (url.pathname === "/mcp") {
       const key = presentedKey(request, url);
-      if (!key) return new Response("Unauthorized", { status: 401 });
-
-      // Check both keys every time so timing does not reveal which one matched.
-      const [isRead, isWrite] = await Promise.all([
-        env.MCP_AUTH_KEY ? secureEquals(key, env.MCP_AUTH_KEY) : false,
-        env.MCP_WRITE_KEY ? secureEquals(key, env.MCP_WRITE_KEY) : false,
-      ]);
-      if (!isRead && !isWrite) {
+      if (!key || !env.MCP_AUTH_KEY || !(await secureEquals(key, env.MCP_AUTH_KEY))) {
         return new Response("Unauthorized", { status: 401 });
       }
 
-      (ctx as any).props = { canWrite: isWrite } satisfies Props;
       return YnabMCP.serve("/mcp").fetch(request, env, ctx);
     }
 
